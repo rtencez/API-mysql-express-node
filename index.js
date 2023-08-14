@@ -52,7 +52,7 @@ app.get('/item-status', (req, res) => {
 
 app.post('/item-table', (req, res) => {
 
-    const { requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName} = req.body;
+    const { requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName } = req.body;
 
     const sql = 'INSERT INTO item_table (requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)';
     const values = [requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName];
@@ -101,11 +101,11 @@ app.post('/tshirt', (req, res) => {
 
 app.patch('/update/comment/:requestID', (req, res) => {
     const requestID = req.params.requestID;
-    const { comment } = req.body;
+    const { comment, status } = req.body;
 
-    const sql = 'UPDATE requests SET comment = ? WHERE requestId = ?';
+    const sql = 'UPDATE requests SET comment = ?, status = ? WHERE requestId = ?';
 
-    db.query(sql, [comment, requestID], (err, result) => {
+    db.query(sql, [comment,status,  requestID], (err, result) => {
         if (err) {
             console.error('Error updating comment: ', err);
             res.status(500).json({ error: 'Error updating comment' });
@@ -116,24 +116,53 @@ app.patch('/update/comment/:requestID', (req, res) => {
     });
 });
 
-app.patch('/update/status/:requestID',(req, res)=>{
-    const  requestID  = req.params.requestID;
-    const {status} =req.body;
+// patch both requests and itemTable
 
-    const sql= 'UPDATE requests SET status = ? WHERE requestId =?';
-    // const sql_2='UPDATE item_table SET status = ? WHERE requestId =?';
+app.patch('/update/status/:requestID', (req, res) => {
+    const requestID = req.params.requestID;
+    const { status } = req.body;
 
-    db.query(sql, [status, requestID], (err, result)=>{
-        if(err){
-            console.error('Error Updating status:', err);
-            res.status(500).json({error :' Error updating comment'});
-        }else {
-                console.log('status updated');
-                res.status(200).json({message : 'status updated successfully'});
+    db.beginTransaction(err => {
+        if (err) {
+            console.error('Error starting transaction:', err);
+            return res.status(500).json({ error: 'Error starting transaction' });
+        }
+
+        const sql1 = 'UPDATE requests SET status = ? WHERE requestId = ?';
+        const sql2 = 'UPDATE item_table SET status = ? WHERE requestId = ?';
+
+        db.query(sql1, [status, requestID], (err, result1) => {
+            if (err) {
+                db.rollback(() => {
+                    console.error('Error executing query 1:', err);
+                    return res.status(500).json({ error: 'Error updating requests' });
+                });
             }
-    });
 
+            db.query(sql2, [status, requestID], (err, result2) => {
+                if (err) {
+                    db.rollback(() => {
+                        console.error('Error executing query 2:', err);
+                        return res.status(500).json({ error: 'Error updating item_table' });
+                    });
+                }
+
+                db.commit(err => {
+                    if (err) {
+                        db.rollback(() => {
+                            console.error('Error committing transaction:', err);
+                            return res.status(500).json({ error: 'Error committing transaction' });
+                        });
+                    }
+
+                    console.log('status successfully updated in both request and item_table');
+                    return res.json({ message: 'status successfully updated in both request and item_table' });
+                });
+            });
+        });
+    });
 });
+
 
 app.listen(PORT, () => {
     console.log(`Server is ON on http://localhost:${PORT}`);
