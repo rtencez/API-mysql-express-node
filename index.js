@@ -49,13 +49,34 @@ app.get('/item-status', (req, res) => {
     });
 });
 
+app.get('/item-table',(req, res)=>{
+    const sql = 'SELECT * FROM item_table';
+    db.query(sql, (err, result)=>{
+        if(err){
+            console.error('Error in featching data:', err);
+            return res.status(500).send('failed to featc data from item table');
+        }
+        res.status(200).json(result);
+    });
+});
+
+app.get('/request', (req,res)=>{
+    const sql= 'SELECT * FROM requests';
+    db.query(sql, (err, result)=>{
+        if(err){
+            console.error('Error in featching request',err);
+            return res.status(500).send('failed to featc data from item table');
+        }
+            res.status(200).json(result);
+    });
+});
 
 app.post('/item-table', (req, res) => {
 
-    const { requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName } = req.body;
+    const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName } = req.body;
 
-    const sql = 'INSERT INTO item_table (requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)';
-    const values = [requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName];
+    const sql = 'INSERT INTO item_table (requestId,itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?,?)';
+    const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName];
 
     db.query(sql, values, (err, result) => {
         if (err) {
@@ -103,16 +124,44 @@ app.patch('/update/comment/:requestID', (req, res) => {
     const requestID = req.params.requestID;
     const { comment, status } = req.body;
 
-    const sql = 'UPDATE requests SET comment = ?, status = ? WHERE requestId = ?';
-
-    db.query(sql, [comment,status,  requestID], (err, result) => {
+    db.beginTransaction(err => {
         if (err) {
-            console.error('Error updating comment: ', err);
-            res.status(500).json({ error: 'Error updating comment' });
-        } else {
-            console.log('Comment updated successfully');
-            res.status(200).json({ message: 'Comment updated successfully' });
+            console.error('Error starting transaction:', err);
+            return res.status(500).json({ error: 'Error starting transaction' });
         }
+
+        const updateRequestsQuery = 'UPDATE requests SET comment = ?, status = ? WHERE requestId = ?';
+        const updateItemTableQuery = 'UPDATE item_table SET status = ? WHERE requestId = ?';
+
+        db.query(updateRequestsQuery, [comment, status, requestID], (err, result1) => {
+            if (err) {
+                db.rollback(() => {
+                    console.error('Error executing query 1:', err);
+                    return res.status(500).json({ error: 'Error updating requests' });
+                });
+            }
+
+            db.query(updateItemTableQuery, [status, requestID], (err, result2) => {
+                if (err) {
+                    db.rollback(() => {
+                        console.error('Error executing query 2:', err);
+                        return res.status(500).json({ error: 'Error updating item_table' });
+                    });
+                }
+
+                db.commit(err => {
+                    if (err) {
+                        db.rollback(() => {
+                            console.error('Error committing transaction:', err);
+                            return res.status(500).json({ error: 'Error committing transaction' });
+                        });
+                    }
+
+                    console.log('Comment and status successfully updated');
+                    return res.json({ message: 'Comment and status updated successfully' });
+                });
+            });
+        });
     });
 });
 
@@ -162,6 +211,66 @@ app.patch('/update/status/:requestID', (req, res) => {
         });
     });
 });
+
+// get by status
+    // -get by request status
+
+app.get('/request/status/:status', (req, res) => {
+    const requestStatus = req.params.status;
+    const sql = 'SELECT * FROM requests WHERE status = ?';
+    db.query(sql, [requestStatus], (err, result) => {
+        if (err) {
+            console.error('Error in fetching requests', err);
+            return res.status(500).send('Failed to fetch data from requests table');
+        }
+
+        if (result.length === 0) {
+            const errorMessage = `No data with status ${requestStatus} not found`;
+            return res.status(404).json({ error: errorMessage });
+        }
+
+        res.status(200).json(result);
+    });
+});
+
+// -get by item_table status
+
+app.get('/item-table/status/:status', (req, res) => {
+    const itemStatus = req.params.status;
+    const sql = 'SELECT * FROM item_table WHERE status = ?';
+    db.query(sql, [itemStatus], (err, result) => {
+        if (err) {
+            console.error('Error in fetching requests', err);
+            return res.status(500).send('Failed to fetch data from requests table');
+        }
+
+        if (result.length === 0) {
+            const errorMessage = `No data with status ${itemStatus} not found`;
+            return res.status(404).json({ error: errorMessage });
+        }
+
+        res.status(200).json(result);
+    });
+});
+
+    // 
+    app.get('/item-table/requestId/:requestId', (req, res) => {
+        const requestId = req.params.requestId;  
+        const sql = 'SELECT * FROM item_table WHERE requestId = ?';
+        db.query(sql, [requestId], (err, result) => {
+            if (err) {
+                console.error('Error in fetching requests', err);
+                return res.status(500).send('Failed to fetch data from requests table');
+            }
+    
+            if (result.length === 0) {
+                const errorMessage = `Data of requestId ${requestId} not found`; 
+                return res.status(404).json({ error: errorMessage });
+            }
+            res.status(200).json(result);
+        });
+    });
+    
 
 
 app.listen(PORT, () => {
