@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 const PORT = 8080;
 const mysql = require('mysql2');
@@ -12,6 +13,7 @@ const db = mysql.createConnection({
     database: 'material_request'
 });
 
+app.use(cors());
 app.get('/units', (req, res) => {
     const sql = 'SELECT * FROM units';
 
@@ -49,6 +51,17 @@ app.get('/item-status', (req, res) => {
     });
 });
 
+app.get('/requester-name', (req, res) => {
+    const sql = 'SELECT * FROM requester_name';
+    db.query(sql, (err, result) => {
+        if (err) {
+            console.error('Error in featching data:', err);
+            return res.status(500).send('failed to featch data from database');
+        }
+        res.status(200).json(result);
+    });
+});
+
 app.get('/item-table',(req, res)=>{
     const sql = 'SELECT * FROM item_table';
     db.query(sql, (err, result)=>{
@@ -72,34 +85,65 @@ app.get('/request', (req,res)=>{
 });
 
 app.post('/item-table', (req, res) => {
+    const items = req.body;
 
-    const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName } = req.body;
+    const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
-    const sql = 'INSERT INTO item_table (requestId,itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?,?)';
-    const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName];
-
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error('Error in inserting data', err);
-            return res.status(500).send('Error in inserting data into the database');
-        }
-        res.status(200).send('Data inserted successfully');
+    const insertPromises = items.map(item => {
+        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status } = item;
+        const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status];
+        
+        return new Promise((resolve, reject) => {
+            db.query(sql, values, (err, result) => {
+                if (err) {
+                    console.error('Error in inserting data', err);
+                    reject(err);
+                } else {
+                    resolve(result);
+                }
+            });
+        });
     });
+
+    Promise.all(insertPromises)
+        .then(() => {
+            res.status(200).send('Data inserted successfully');
+        })
+        .catch(error => {
+            res.status(500).send('Error in inserting data into the database');
+        });
 });
 
 
-app.post('/requests', (req, res) => {
-    const { requestId, date, status, createdBy } = req.body;
-    const sql = 'INSERT INTO requests (requestId, date, status, createdBy) VALUES (?, ?, ?, ?)';
-    const values = [requestId, date, status, createdBy];
 
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error('Error in inserting data', err);
-            return res.status(500).send('Error in inserting data into the database');
-        }
-        res.status(200).send('Data inserted successfully');
+app.post('/requests', (req, res) => {
+    const requests = req.body;
+
+    const sql = 'INSERT INTO requests (requestId, date, status, createdBy) VALUES (?, ?, ?, ?)';
+
+    const insertPromises = requests.map(request => {
+        const { requestId, date, status, createdBy } = request;
+        const values = [requestId, date, status, createdBy];
+        
+        return new Promise((resolve, reject) => {
+            db.query(sql, values, (err, result) => {
+                if (err) {
+                    console.error('Error in inserting data', err);
+                    reject(err);
+                } else {
+                    resolve(result);
+                }
+            });
+        });
     });
+
+    Promise.all(insertPromises)
+        .then(() => {
+            res.status(200).send('Data inserted successfully');
+        })
+        .catch(error => {
+            res.status(500).send('Error in inserting data into the database');
+        });
 });
 
 
