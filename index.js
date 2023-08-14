@@ -52,10 +52,10 @@ app.get('/item-status', (req, res) => {
 
 app.post('/item-table', (req, res) => {
 
-    const { requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status } = req.body;
+    const { requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName} = req.body;
 
-    const sql = 'INSERT INTO item_table (requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    const values = [requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status];
+    const sql = 'INSERT INTO item_table (requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)';
+    const values = [requestId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName];
 
     db.query(sql, values, (err, result) => {
         if (err) {
@@ -114,6 +114,25 @@ app.patch('/update/comment/:requestID', (req, res) => {
             res.status(200).json({ message: 'Comment updated successfully' });
         }
     });
+});
+
+app.patch('/update/status/:requestID',(req, res)=>{
+    const  requestID  = req.params.requestID;
+    const {status} =req.body;
+
+    const sql= 'UPDATE requests SET status = ? WHERE requestId =?';
+    // const sql_2='UPDATE item_table SET status = ? WHERE requestId =?';
+
+    db.query(sql, [status, requestID], (err, result)=>{
+        if(err){
+            console.error('Error Updating status:', err);
+            res.status(500).json({error :' Error updating comment'});
+        }else {
+                console.log('status updated');
+                res.status(200).json({message : 'status updated successfully'});
+            }
+    });
+
 });
 
 app.listen(PORT, () => {
