@@ -1,8 +1,3 @@
-// Create your own REST Service API using Express js, Node js, and mysql
-// install npm install express
-//         npm install mysql2 -mysql workbench
-//         npm install nodemon -rerun code when changes is done automatically
-
 const express = require('express');
 const app = express();
 const PORT = 8080;
@@ -30,10 +25,10 @@ app.get('/units', (req, res) => {
     });
 });
 
-app.get('/request-status', (req, res)=>{
-    const sql= 'SELECT * FROM request_status';
-    db.query(sql,(err ,result)=> {
-        if(err){
+app.get('/request-status', (req, res) => {
+    const sql = 'SELECT * FROM request_status';
+    db.query(sql, (err, result) => {
+        if (err) {
             console.error('Error in featching data:', err);
             return res.status(500).send('failed to featch data from database');
         }
@@ -42,10 +37,10 @@ app.get('/request-status', (req, res)=>{
     });
 });
 
-app.get('/item-status', (req, res)=>{
-    const sql= 'SELECT * FROM item_status';
-    db.query(sql,(err ,result)=> {
-        if(err){
+app.get('/item-status', (req, res) => {
+    const sql = 'SELECT * FROM item_status';
+    db.query(sql, (err, result) => {
+        if (err) {
             console.error('Error in featching data:', err);
             return res.status(500).send('failed to featch data from database');
         }
@@ -98,12 +93,28 @@ app.post('/tshirt', (req, res) => {
             console.error('Error inserting data:', err);
             return res.status(500).send('Error inserting data into database');
         }
-        
+
         console.log('Data inserted successfully:', result);
         res.status(201).send('Data inserted successfully');
     });
 });
 
+app.patch('/update/comment/:requestID', (req, res) => {
+    const requestID = req.params.requestID;
+    const { comment } = req.body;
+
+    const sql = 'UPDATE requests SET comment = ? WHERE requestId = ?';
+
+    db.query(sql, [comment, requestID], (err, result) => {
+        if (err) {
+            console.error('Error updating comment: ', err);
+            res.status(500).json({ error: 'Error updating comment' });
+        } else {
+            console.log('Comment updated successfully');
+            res.status(200).json({ message: 'Comment updated successfully' });
+        }
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`Server is ON on http://localhost:${PORT}`);
