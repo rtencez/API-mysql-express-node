@@ -8,23 +8,23 @@
 Endpoint looks
 
 ---get---
-/units
-/request-status
-/item-status
-/item-table
-/request
+/units.
+/request-status.
+/item-status.
+/item-table.
+/request.
 
 ---post---
-/item-table
-/requests
+/item-table.
+/requests.
 
 ---patch---
-/update/comment/:requestID
-/update/status/:requestID
+/update/comment/:requestID.
+/update/status/:requestID.
 
 ---get by status---
-/request/status/:status
-/item-table/status/:status
+/request/status/:status.
+/item-table/status/:status.
 
 ---get by request id---
-/item-table/requestId/:requestId
+/item-table/requestId/:requestId.
