@@ -89,8 +89,8 @@ app.post('/item-table', (req, res) => {
 
     const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
-    const insertPromises = items.map(item => {
-        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status } = item;
+    // const insertPromises = items.map(item => {
+        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status } = items;
         const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status];
         
         return new Promise((resolve, reject) => {
@@ -103,7 +103,7 @@ app.post('/item-table', (req, res) => {
                 }
             });
         });
-    });
+    // });
 
     Promise.all(insertPromises)
         .then(() => {
@@ -146,23 +146,6 @@ app.post('/requests', (req, res) => {
         });
 });
 
-
-app.post('/tshirt', (req, res) => {
-    const { tshirt, size } = req.body;
-
-    const sql = 'INSERT INTO tshirts (tshirt, size) VALUES (?, ?)';
-    const values = [tshirt, size];
-
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error('Error inserting data:', err);
-            return res.status(500).send('Error inserting data into database');
-        }
-
-        console.log('Data inserted successfully:', result);
-        res.status(201).send('Data inserted successfully');
-    });
-});
 
 app.patch('/update/comment/:requestID', (req, res) => {
     const requestID = req.params.requestID;
@@ -255,6 +238,25 @@ app.patch('/update/status/:requestID', (req, res) => {
         });
     });
 });
+
+app.patch('/status/itemId/:itemId', (req, res) => {
+    const itemId = req.params.itemId; // Extract itemId from URL parameter
+    const newStatus = req.body.status; // Assuming status is sent in the request body
+
+    if (!newStatus) {
+        return res.status(400).json({ error: 'Missing status in request body' });
+    }
+
+    const sql = 'UPDATE item_table SET status = ? WHERE itemId = ?';
+    db.query(sql, [newStatus, itemId], (err, result) => {
+        if (err) {
+            console.error('Error updating data:', err);
+            return res.status(500).json({ error: 'Failed to update data in the database' });
+        }
+        res.status(200).json({ message: 'Data updated successfully'});
+    });
+});
+
 
 // get by status
     // -get by request status
