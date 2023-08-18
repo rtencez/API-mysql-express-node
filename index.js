@@ -359,7 +359,7 @@ app.patch('/edit/item/:itemId', (req, res) => {
         return res.status(400).json({ message: 'Request body is empty' });
     }
 
-    const sql = 'UPDATE item_table SET itemName =?, purpuse=?, quantity=?, unit=?, unitPrice=?, totalPrice=?, createdBy=?, requesterName=?, status=?';
+    const sql = 'UPDATE item_table SET itemName =?, purpuse=?, quantity=?, unit=?, unitPrice=?, totalPrice=?, createdBy=?, requesterName=?, status=? WHERE  itemId = ?';
     db.query(sql, [itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status, itemId], (err, result) => {
         if (err) {
             console.error('Error in Editing Items', err);
