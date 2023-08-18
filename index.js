@@ -87,11 +87,11 @@ app.get('/request', (req,res)=>{
 app.post('/item-table', (req, res) => {
     const items = req.body;
 
-    const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)';
 
     // const insertPromises = items.map(item => {
-        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status } = items;
-        const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, requesterName, status];
+        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status } = items;
+        const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status];
         
         return new Promise((resolve, reject) => {
             db.query(sql, values, (err, result) => {
@@ -240,8 +240,8 @@ app.patch('/update/status/:requestID', (req, res) => {
 });
 
 app.patch('/status/itemId/:itemId', (req, res) => {
-    const itemId = req.params.itemId; // Extract itemId from URL parameter
-    const newStatus = req.body.status; // Assuming status is sent in the request body
+    const itemId = req.params.itemId; 
+    const newStatus = req.body.status;
 
     if (!newStatus) {
         return res.status(400).json({ error: 'Missing status in request body' });
@@ -299,7 +299,6 @@ app.get('/item-table/status/:status', (req, res) => {
     });
 });
 
-    // 
     app.get('/item-table/requestId/:requestId', (req, res) => {
         const requestId = req.params.requestId;  
         const sql = 'SELECT * FROM item_table WHERE requestId = ?';
@@ -317,6 +316,61 @@ app.get('/item-table/status/:status', (req, res) => {
         });
     });
     
+    app.delete('/delete/itemId/:itemId', (req,res)=>{
+        const itemId = req.params.itemId;
+        const sql= 'DELETE FROM item_table WHERE itemId= ?;'
+        db.query(sql, [itemId], (err, result) => {
+            if (err) {
+                console.error('Error in Deleteing Item', err);
+                return res.status(500).send('Failed to Delete Item from item table');
+            } else{
+                console.log('Deleted successfully');
+            }
+    
+            res.status(200).json(result);
+        });
+    })
+
+    app.patch('/update/item/:itemId/status', (req, res) => {
+        const itemId = req.params.itemId; 
+        const { comment, status } = req.body;
+    
+        const sql = 'UPDATE item_table SET comment=?, status=? WHERE itemId=?'; // Correct the SQL query
+        db.query(sql, [comment, status, itemId], (err, result) => {
+            if (err) {
+                console.error('Error updating item status:', err);
+                return res.status(500).json({ error: 'Error updating item status' });
+            } else {
+                console.log("Comment added and status updated for item:", itemId);
+                return res.status(200).json({ message: 'Status updated successfully' });
+            }
+        });
+    });
+
+app.patch('/edit/item/:itemId', (req, res) => {
+    const itemId = req.params.itemId;
+    const { itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status } = req.body;
+
+    if (!itemId) {
+        return res.status(400).json({ message: 'Missing itemId in URL' });
+    }
+
+    if (!itemName && !purpuse && !quantity && !unit && !unitPrice && !totalPrice && !createdBy && !requesterName && !status) {
+        return res.status(400).json({ message: 'Request body is empty' });
+    }
+
+    const sql = 'UPDATE item_table SET itemName =?, purpuse=?, quantity=?, unit=?, unitPrice=?, totalPrice=?, createdBy=?, requesterName=?, status=?';
+    db.query(sql, [itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status, itemId], (err, result) => {
+        if (err) {
+            console.error('Error in Editing Items', err);
+            return res.status(500).json({ message: 'Error in editing Item' });
+        } else {
+            console.log(itemId, ": Edit item Sucessfully");
+            return res.status(200).json({ message: 'Edit item Sucessfully' });
+        }
+    });
+})
+
 
 
 app.listen(PORT, () => {
