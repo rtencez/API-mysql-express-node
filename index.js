@@ -27,6 +27,18 @@ app.get('/units', (req, res) => {
     });
 });
 
+app.get('/requests',(req, res)=>{
+    const sql= 'SELECT * FROM requests';
+
+    db.query(sql, (err, result)=>{
+        if(err){
+            console.error('Error in featchin data', err);
+            return res.status(500).send('Error fetching data from database');
+        }
+        res.status(200).json(result);
+    });
+});
+
 app.get('/request-status', (req, res) => {
     const sql = 'SELECT * FROM request_status';
     db.query(sql, (err, result) => {
@@ -89,7 +101,6 @@ app.post('/item-table', (req, res) => {
 
     const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)';
 
-    // const insertPromises = items.map(item => {
         const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status } = items;
         const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status];
         
@@ -103,48 +114,45 @@ app.post('/item-table', (req, res) => {
                 }
             });
         });
-    // });
-
-    Promise.all(insertPromises)
-        .then(() => {
-            res.status(200).send('Data inserted successfully');
-        })
-        .catch(error => {
-            res.status(500).send('Error in inserting data into the database');
-        });
 });
 
 
 
-app.post('/requests', (req, res) => {
+app.post('/requests', async (req, res) => {
     const requests = req.body;
 
-    const sql = 'INSERT INTO requests (requestId, date, status, createdBy) VALUES (?, ?, ?, ?)';
-
-    const insertPromises = requests.map(request => {
-        const { requestId, date, status, createdBy } = request;
+        const { requestId, date, status, createdBy } = requests;
         const values = [requestId, date, status, createdBy];
-        
-        return new Promise((resolve, reject) => {
-            db.query(sql, values, (err, result) => {
+
+        const sqlCheckDuplicate = 'SELECT COUNT(*) AS count FROM requests WHERE requestId = ?';
+        const duplicateCheckResult = await new Promise((resolve, reject) => {
+            db.query(sqlCheckDuplicate, [requestId], (err, result) => {
                 if (err) {
-                    console.error('Error in inserting data', err);
+                    console.error('Error in checking duplicate', err);
                     reject(err);
                 } else {
-                    resolve(result);
+                    resolve(result[0].count);
                 }
             });
         });
-    });
 
-    Promise.all(insertPromises)
-        .then(() => {
-            res.status(200).send('Data inserted successfully');
-        })
-        .catch(error => {
-            res.status(500).send('Error in inserting data into the database');
-        });
-});
+        if (duplicateCheckResult === 0) {
+            return new Promise((resolve, reject) => {
+                const sqlInsert = 'INSERT INTO requests (requestId, date, status, createdBy) VALUES (?, ?, ?, ?)';
+                db.query(sqlInsert, values, (err, result) => {
+                    if (err) {
+                        console.error('Error in inserting data', err);
+                        reject(err);
+                    } else {
+                        resolve(result);
+                        console.log("Inserted request");
+                    }
+                });
+            });
+        } else {
+            return `Request with ID ${requestId} already exists.`;
+        }
+    });
 
 
 app.patch('/update/comment/:requestID', (req, res) => {
