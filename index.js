@@ -212,7 +212,7 @@ app.patch('/update/status/:requestID', (req, res) => {
             return res.status(500).json({ error: 'Error starting transaction' });
         }
 
-        const sql1 = 'UPDATE requests SET status = ?, reviewer=?, reviewDate=? WHERE requestId = ?';
+        const sql1 = "UPDATE requests SET status = ?, reviewer = ?, reviewDate = ? WHERE requestId = ? AND status <> 'Semi-Finished'";
         const sql2 = 'UPDATE item_table SET status = ?, reviewer=?, reviewDate=? WHERE requestId = ?';
 
         db.query(sql1, [status,approveBy, approveDate, requestID], (err, result1) => {
@@ -247,21 +247,30 @@ app.patch('/update/status/:requestID', (req, res) => {
     });
 });
 
+
 app.patch('/status/itemId/:itemId', (req, res) => {
-    const itemId = req.params.itemId; 
-    const {newStatus, approveBy, approveDate} = req.body;
+    const itemId = req.params.itemId;
+    const { newStatus, approveBy, approveDate, requestID } = req.body;
 
     if (!newStatus && !approveBy && !approveDate) {
         return res.status(400).json({ error: 'Missing status in request body' });
     }
 
-    const sql = 'UPDATE item_table SET status = ?,reviewer=?,reviewDate=?  WHERE itemId = ?';
-    db.query(sql, [newStatus,approveBy,approveDate, itemId], (err, result) => {
+    const sql = 'UPDATE item_table SET status = ?, reviewer = ?, reviewDate = ? WHERE itemId = ?';
+    const updateReq = 'UPDATE requests SET status = ?, reviewer = ?, reviewDate = ? WHERE requestId = ?'; // Use placeholders
+
+    db.query(sql, [newStatus, approveBy, approveDate, itemId], (err, result) => {
         if (err) {
             console.error('Error updating data:', err);
             return res.status(500).json({ error: 'Failed to update data in the database' });
         }
-        res.status(200).json({ message: 'Data updated successfully'});
+        db.query(updateReq, ['Semi-Finished',approveBy, approveDate, requestID], (err, result) => {
+            if (err) {
+                console.error('Error updating data:', err);
+                return res.status(500).json({ error: 'Failed to update data in requests' });
+            }
+            res.status(200).json({ message: 'Data updated successfully' });
+        });
     });
 });
 
@@ -289,9 +298,10 @@ app.get('/request/status/:status', (req, res) => {
 
 // -get by item_table status
 
-app.get('/item-table/status/:status', (req, res) => {
+app.get('/item-table/status/:status/', (req, res) => {
     const itemStatus = req.params.status;
     const sql = 'SELECT * FROM item_table WHERE status = ?';
+    const updateReq= 
     db.query(sql, [itemStatus], (err, result) => {
         if (err) {
             console.error('Error in fetching requests', err);
@@ -341,19 +351,33 @@ app.get('/item-table/status/:status', (req, res) => {
 
     app.patch('/update/item/:itemId/status', (req, res) => {
         const itemId = req.params.itemId; 
-        const { comment, status,approveBy, approveDate } = req.body;
+        const { comment, status, approveBy, approveDate, requestID } = req.body;
     
-        const sql = 'UPDATE item_table SET comment=?, status=?, reviewer=?,reviewDate=? WHERE itemId=?';
-        db.query(sql, [comment, status,approveBy, approveDate, itemId], (err, result) => {
+        const updateItemSql = 'UPDATE item_table SET comment=?, status=?, reviewer=?, reviewDate=? WHERE itemId=?';
+        const updateRequestSql = 'UPDATE requests SET status=?, reviewer=?, reviewDate=? WHERE requestId=?';
+    
+        // Update item_table
+        db.query(updateItemSql, [comment, status, approveBy, approveDate, itemId], (err, itemResult) => {
             if (err) {
                 console.error('Error updating item status:', err);
                 return res.status(500).json({ error: 'Error updating item status' });
             } else {
                 console.log("Comment added and status updated for item:", itemId);
-                return res.status(200).json({ message: 'Status updated successfully' });
+                
+                // Update requests
+                db.query(updateRequestSql, ['Semi-Finished',approveBy, approveDate, requestID], (err, requestResult) => {
+                    if (err) {
+                        console.error('Error updating request status:', err);
+                        return res.status(500).json({ error: 'Error updating request status' });
+                    } else {
+                        console.log("Status updated for request:", requestID);
+                        return res.status(200).json({ message: 'Status updated successfully' });
+                    }
+                });
             }
         });
     });
+    
 
 app.patch('/edit/item/:itemId', (req, res) => {
     const itemId = req.params.itemId;
