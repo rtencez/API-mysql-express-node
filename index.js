@@ -96,24 +96,38 @@ app.get('/request', (req,res)=>{
     });
 });
 
-app.post('/item-table', (req, res) => {
+app.post('/item-table', async (req, res) => {
     const items = req.body;
 
-    const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)';
+    const insertPromises = items.map(item => {
+        const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status } = item;
+        const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status];
 
-        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status } = items;
-        const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice,createdBy, requesterName, status];
-        
         return new Promise((resolve, reject) => {
             db.query(sql, values, (err, result) => {
                 if (err) {
-                    console.error('Error in inserting data', err);
-                    reject(err);
+                    if (err.code === 'ER_DUP_ENTRY') {
+                        console.error('Duplicate entry, skipping:', values);
+                        resolve(null); // Resolve with null to indicate the skip
+                    } else {
+                        console.error('Error in inserting data', err);
+                        reject(err);
+                    }
                 } else {
                     resolve(result);
                 }
             });
         });
+    });
+
+    try {
+        const results = await Promise.all(insertPromises);
+        const successfulInserts = results.filter(result => result !== null);
+        res.status(200).json({ message: 'Data inserted successfully', successfulInserts });
+    } catch (error) {
+        res.status(500).json({ error: 'An error occurred while inserting data' });
+    }
 });
 
 
