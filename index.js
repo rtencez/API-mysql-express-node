@@ -14,6 +14,8 @@ const db = mysql.createConnection({
 });
 
 app.use(cors());
+
+
 app.get('/units', (req, res) => {
     const sql = 'SELECT * FROM units';
 
@@ -24,6 +26,18 @@ app.get('/units', (req, res) => {
         }
 
         res.status(200).json(results);
+    });
+});
+
+app.get('/reviewer', (req,res)=>{
+    const sql = 'SELECT * FROM reviewer';
+
+    db.query(sql, (err, result)=>{
+        if(err){
+            console.error('Error in featch data', err);
+            return res.status(500).send('Error in featching data from dataBase');
+        }
+        res.status(200).json(result);
     });
 });
 
@@ -96,40 +110,37 @@ app.get('/request', (req,res)=>{
     });
 });
 
+
 app.post('/item-table', async (req, res) => {
     const items = req.body;
 
-    const insertPromises = items.map(item => {
-        const sql = 'INSERT INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-        const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status } = item;
-        const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status];
-
-        return new Promise((resolve, reject) => {
-            db.query(sql, values, (err, result) => {
-                if (err) {
-                    if (err.code === 'ER_DUP_ENTRY') {
-                        console.error('Duplicate entry, skipping:', values);
-                        resolve(null); // Resolve with null to indicate the skip
-                    } else {
-                        console.error('Error in inserting data', err);
-                        reject(err);
-                    }
-                } else {
-                    resolve(result);
-                }
-            });
-        });
-    });
-
     try {
-        const results = await Promise.all(insertPromises);
-        const successfulInserts = results.filter(result => result !== null);
+        const successfulInserts = [];
+
+        for (const item of items) {
+            const sql = 'INSERT IGNORE INTO item_table (requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            const { requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status } = item;
+            const values = [requestId, itemId, itemName, purpuse, quantity, unit, unitPrice, totalPrice, createdBy, requesterName, status];
+
+            try {
+                const [result] = await db.promise().execute(sql, values);
+
+                if (result.affectedRows > 0) {
+                    successfulInserts.push(result.insertId);
+                } else {
+                    console.log('Duplicate entry, skipping:', values);
+                }
+            } catch (err) {
+                console.error('Error in inserting data', err);
+            }
+        }
+
         res.status(200).json({ message: 'Data inserted successfully', successfulInserts });
     } catch (error) {
+        console.error('An error occurred while inserting data', error);
         res.status(500).json({ error: 'An error occurred while inserting data' });
     }
 });
-
 
 
 app.post('/requests', async (req, res) => {
@@ -416,8 +427,6 @@ app.patch('/edit/item/:itemId', (req, res) => {
         }
     });
 })
-
-
 
 app.listen(PORT, () => {
     console.log(`Server is ON on http://localhost:${PORT}`);
